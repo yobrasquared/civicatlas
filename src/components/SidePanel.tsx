@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Bill, Member, RollCallVote } from "../lib/types";
 import { districtLabel } from "../lib/states";
@@ -26,6 +26,12 @@ const TABS = ["Moving now", "New laws", "Most active"] as const;
 
 export default function SidePanel({ selection, members, bills, votes, topic, activity, fetchedAt, onClear, onPickSeat }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Moving now");
+  // Mobile bottom-sheet state; ignored on md+ where the panel is a fixed side dock.
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (selection?.geoid) setExpanded(true);
+  }, [selection?.geoid]);
+  const sheet = { expanded, onToggle: () => setExpanded((e) => !e) };
 
   const topicBills = topic ? bills.filter((b) => b.topics.includes(topic)) : bills;
 
@@ -44,7 +50,7 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
     const senators = delegation.filter((m) => m.chamber === "Senate");
 
     return (
-      <Panel>
+      <Panel {...sheet}>
         <div className="rise">
           <button onClick={onClear} className="mb-3 text-[11px] text-[#8fa1bb] transition-colors hover:text-[#5eead4]">
             ← Back to national view
@@ -103,7 +109,7 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
     .slice(0, 12);
 
   return (
-    <Panel>
+    <Panel {...sheet}>
       <div className="rise">
         <h2 className="text-[17px] font-semibold leading-tight text-[#f1f6fc]">Live from the 119th Congress</h2>
         <p className="mt-1 text-[11px] leading-relaxed text-[#8fa1bb]">
@@ -218,10 +224,30 @@ function DelegationVotes({ delegation, votes, bills }: { delegation: Member[]; v
   );
 }
 
-function Panel({ children }: { children: React.ReactNode }) {
+function Panel({
+  children,
+  expanded,
+  onToggle,
+}: {
+  children: React.ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <div className="glass scroll-slim pointer-events-auto absolute top-[118px] bottom-4 right-4 w-[420px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl p-4">
-      {children}
+    <div
+      className={`glass pointer-events-auto absolute inset-x-2 bottom-2 z-10 flex flex-col overflow-hidden rounded-2xl transition-[max-height] duration-300 ${
+        expanded ? "max-h-[62vh]" : "max-h-[150px]"
+      } md:inset-x-auto md:top-[118px] md:right-4 md:bottom-4 md:w-[420px] md:max-h-none`}
+    >
+      <button
+        onClick={onToggle}
+        className="flex w-full shrink-0 flex-col items-center gap-1 border-b border-[rgba(148,163,184,0.1)] py-1.5 text-[9px] text-[#8fa1bb] md:hidden"
+        aria-label={expanded ? "Collapse panel" : "Expand panel"}
+      >
+        <span className="h-1 w-9 rounded-full bg-[rgba(148,163,184,0.4)]" />
+        {expanded ? "tap to collapse ▾" : "tap to expand ▴"}
+      </button>
+      <div className="scroll-slim flex-1 overflow-y-auto p-4">{children}</div>
     </div>
   );
 }

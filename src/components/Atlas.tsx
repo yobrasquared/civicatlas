@@ -113,13 +113,13 @@ export default function Atlas() {
       />
 
       {/* top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-4">
-        <div className="flex items-center gap-4">
-          <div className="glass pointer-events-auto flex items-center gap-3 rounded-2xl px-4 py-3">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-2 md:p-4">
+        <div className="flex items-center gap-2 md:gap-4">
+          <div className="glass pointer-events-auto flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2.5 md:gap-3 md:px-4 md:py-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#2dd4bf] to-[#818cf8] text-sm font-bold text-[#06251f]">
               ◆
             </div>
-            <div>
+            <div className="hidden sm:block">
               <div className="text-[15px] font-semibold leading-none tracking-tight">
                 Civic<span className="brand-gradient">Atlas</span>
               </div>
@@ -149,7 +149,7 @@ export default function Atlas() {
         </div>
 
         {/* topic chips */}
-        <div className="scroll-slim pointer-events-auto flex gap-1.5 overflow-x-auto pb-1 pr-[440px]">
+        <div className="scroll-slim pointer-events-auto flex gap-1.5 overflow-x-auto pb-1 pr-2 md:pr-[440px]">
           <button className={`chip ${topic === null ? "active" : ""}`} onClick={() => setTopic(null)}>
             All topics
           </button>
@@ -161,10 +161,10 @@ export default function Atlas() {
         </div>
       </div>
 
-      {/* hover card */}
+      {/* hover card (pointer devices only — touch goes straight to tap-select) */}
       {hover && hoverSeat && (
         <div
-          className="glass pointer-events-none absolute z-20 w-60 rounded-xl p-3"
+          className="glass pointer-events-none absolute z-20 hidden w-60 rounded-xl p-3 md:block"
           style={{
             left: Math.min(hover.x + 14, (typeof window !== "undefined" ? window.innerWidth : 1200) - 260),
             top: hover.y + 14,

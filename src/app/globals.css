@@ -92,3 +92,13 @@ html, body {
 .maplibregl-ctrl-attrib { background: rgba(6, 10, 19, 0.6) !important; }
 .maplibregl-ctrl-attrib a { color: #64748b !important; font-size: 10px; }
 .maplibregl-canvas { outline: none; }
+
+/* keep map controls above the mobile bottom sheet */
+@media (max-width: 767px) {
+  .maplibregl-ctrl-bottom-right { bottom: 158px !important; }
+}
+
+/* keep zoom controls clear of the right-side dock on larger screens (attribution stays in the corner) */
+@media (min-width: 768px) {
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group { margin-right: 448px !important; }
+}

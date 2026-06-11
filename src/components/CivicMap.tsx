@@ -52,6 +52,28 @@ function bboxOf(geom: GeoJSON.Geometry): [number, number, number, number] {
   return [minX, minY, maxX, maxY];
 }
 
+/** Reserve space for the side dock on desktop, the bottom sheet on mobile. */
+function fitPadding(map: maplibregl.Map) {
+  const w = map.getContainer().clientWidth;
+  const h = map.getContainer().clientHeight;
+  return w < 768
+    ? { top: 90, bottom: Math.min(300, Math.round(h * 0.4)), left: 24, right: 24 }
+    : { top: 140, bottom: 60, left: 60, right: 480 };
+}
+
+/**
+ * Padding for the zoomed-out national frame. Reserving the full 480px dock on
+ * narrow viewports would force a zoom below minZoom and misplace the center,
+ * so only reserve it when there is room.
+ */
+function nationalPadding(map: maplibregl.Map) {
+  const w = map.getContainer().clientWidth;
+  const h = map.getContainer().clientHeight;
+  if (w < 768) return { top: 90, bottom: Math.min(300, Math.round(h * 0.4)), left: 24, right: 24 };
+  if (w < 1100) return { top: 130, bottom: 60, left: 40, right: 40 };
+  return { top: 140, bottom: 60, left: 60, right: 480 };
+}
+
 const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
   { activity, maxActivity, onSelect, onHover },
   ref
@@ -91,14 +113,25 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
       minZoom: 2.8,
       maxZoom: 12,
       attributionControl: { compact: true },
+      // lets users (and tests) capture the map canvas as an image
+      canvasContextAttributes: { preserveDrawingBuffer: true },
     });
     mapRef.current = map;
+    if (process.env.NODE_ENV === "development") {
+      (window as unknown as { __cmap?: maplibregl.Map }).__cmap = map;
+    }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
 
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(containerRef.current);
 
     map.on("load", async () => {
+      // frame the continental US for any viewport shape, leaving room for the panel/sheet
+      try {
+        map.fitBounds([-124.8, 24.4, -66.9, 49.4], { padding: nationalPadding(map), duration: 0 });
+      } catch {
+        /* tiny viewports: keep default view */
+      }
       const res = await fetch("/data/districts.geojson");
       const geojson = (await res.json()) as GeoJSON.FeatureCollection;
       featuresRef.current = geojson.features as Feature[];
@@ -216,12 +249,16 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
     map.setFeatureState({ source: "districts", id: geoid }, { selected: true });
     const f = featuresRef.current.find((x) => x.properties.GEOID === geoid);
     if (f) {
-      map.fitBounds(bboxOf(f.geometry), {
-        padding: { top: 140, bottom: 60, left: 60, right: 480 },
-        maxZoom: 8.5,
-        duration: 1100,
-        essential: true,
-      });
+      try {
+        map.fitBounds(bboxOf(f.geometry), {
+          padding: fitPadding(map),
+          maxZoom: 8.5,
+          duration: 1100,
+          essential: true,
+        });
+      } catch {
+        map.fitBounds(bboxOf(f.geometry), { maxZoom: 8.5, duration: 1100, essential: true });
+      }
     }
   };
 
@@ -249,11 +286,11 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
           : b;
       }
       if (box) {
-        map.fitBounds(box, {
-          padding: { top: 140, bottom: 60, left: 60, right: 480 },
-          duration: 1200,
-          essential: true,
-        });
+        try {
+          map.fitBounds(box, { padding: fitPadding(map), duration: 1200, essential: true });
+        } catch {
+          map.fitBounds(box, { duration: 1200, essential: true });
+        }
       }
     },
   }));

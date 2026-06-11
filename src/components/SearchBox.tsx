@@ -69,7 +69,7 @@ export default function SearchBox({ members, bills, onPickState, onPickMember, o
 
   return (
     <div ref={boxRef} className="pointer-events-auto relative w-full max-w-xl">
-      <div className="glass flex items-center gap-2 rounded-2xl px-4 py-3">
+      <div className="glass flex items-center gap-2 rounded-2xl px-3 py-2.5 md:px-4 md:py-3">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 text-[#5eead4]">
           <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
           <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -93,7 +93,7 @@ export default function SearchBox({ members, bills, onPickState, onPickMember, o
       </div>
 
       {open && (norm.length >= 2 || error) && (
-        <div className="glass scroll-slim absolute top-full mt-2 max-h-[60vh] w-full overflow-y-auto rounded-2xl p-2">
+        <div className="glass scroll-slim absolute top-full z-30 mt-2 max-h-[60vh] w-full overflow-y-auto rounded-2xl p-2">
           {error && <div className="px-3 py-2 text-xs text-[#fb923c]">{error}</div>}
 
           {(isZip || looksLikeAddress) && (

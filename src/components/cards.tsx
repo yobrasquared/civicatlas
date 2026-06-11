@@ -132,7 +132,7 @@ export function Stepper({ bill }: { bill: Bill }) {
                 >
                   {done ? "✓" : i + 1}
                 </div>
-                <span className={`mt-1.5 w-16 text-center text-[9px] leading-tight ${done ? "text-[#a7f3d0]" : "text-[#64748b]"}`}>
+                <span className={`mt-1.5 w-11 text-center text-[8px] leading-tight sm:w-16 sm:text-[9px] ${done ? "text-[#a7f3d0]" : "text-[#64748b]"}`}>
                   {step}
                 </span>
               </div>
