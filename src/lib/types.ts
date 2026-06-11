@@ -53,5 +53,26 @@ export type Bill = {
   actions: { date: string; text: string }[];
 };
 
+export type RollCallVote = {
+  key: string;
+  chamber: "House" | "Senate";
+  number: number;
+  date: string;
+  question: string;
+  result: string;
+  passed: boolean;
+  category: string;
+  kind: "passage" | "amendment" | "nomination" | "procedural" | "other";
+  required: string;
+  bill_id: string | null;
+  totals: { y: number; n: number; o: number };
+  link: string;
+  official_url: string | null;
+  /** bioguideId -> Y | N | P | X */
+  positions: Record<string, string>;
+};
+
+export type VotesFile = { fetched_at: string; source: string; votes: RollCallVote[] };
+
 export type MembersFile = { fetched_at: string; source: string; source_url: string; members: Member[] };
 export type BillsFile = { fetched_at: string; source: string; source_url: string; congress: number; bills: Bill[] };

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { Bill, Member } from "../lib/types";
+import Link from "next/link";
+import type { Bill, Member, RollCallVote } from "../lib/types";
 import { districtLabel } from "../lib/states";
 import { fmtDate } from "../lib/status";
 import { BillRow, RepCard } from "./cards";
+import { PositionBadge } from "./votes";
 
 type Selection = { state: string; district: number; geoid: string } | null;
 
@@ -12,6 +14,7 @@ type Props = {
   selection: Selection;
   members: Member[];
   bills: Bill[];
+  votes: RollCallVote[];
   topic: string | null;
   activity: Record<string, number>;
   fetchedAt: string | null;
@@ -21,7 +24,7 @@ type Props = {
 
 const TABS = ["Moving now", "New laws", "Most active"] as const;
 
-export default function SidePanel({ selection, members, bills, topic, activity, fetchedAt, onClear, onPickSeat }: Props) {
+export default function SidePanel({ selection, members, bills, votes, topic, activity, fetchedAt, onClear, onPickSeat }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Moving now");
 
   const topicBills = topic ? bills.filter((b) => b.topics.includes(topic)) : bills;
@@ -66,6 +69,8 @@ export default function SidePanel({ selection, members, bills, topic, activity, 
               <RepCard key={m.id} member={m} billCount={countFor(m)} />
             ))}
           </div>
+
+          <DelegationVotes delegation={delegation} votes={votes} bills={bills} />
 
           <div className="mt-5">
             <SectionLabel>Recent bills from this delegation</SectionLabel>
@@ -159,6 +164,60 @@ export default function SidePanel({ selection, members, bills, topic, activity, 
   );
 }
 
+function DelegationVotes({ delegation, votes, bills }: { delegation: Member[]; votes: RollCallVote[]; bills: Bill[] }) {
+  const billById = new Map(bills.map((b) => [b.id, b]));
+  const relevant = votes
+    .filter((v) => delegation.some((m) => v.positions[m.id]))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5);
+  if (relevant.length === 0) return null;
+  return (
+    <div className="mt-5">
+      <SectionLabel>How your delegation voted recently</SectionLabel>
+      <div className="mt-1 space-y-1.5">
+        {relevant.map((v) => {
+          const bill = v.bill_id ? billById.get(v.bill_id) : null;
+          const body = (
+            <>
+              <div className="line-clamp-2 text-[12px] leading-snug text-[#dbe5f1]">
+                {bill ? `${bill.number}: ${bill.title}` : v.question}
+              </div>
+              <div className="mt-1 text-[9px] text-[#64748b]">
+                {v.chamber} · {fmtDate(v.date)} · {v.result}
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {delegation
+                  .filter((m) => v.positions[m.id])
+                  .map((m) => (
+                    <span key={m.id} className="inline-flex items-center gap-1 text-[10px] text-[#8fa1bb]">
+                      {m.last} <PositionBadge pos={v.positions[m.id]} size="xs" />
+                    </span>
+                  ))}
+              </div>
+            </>
+          );
+          return bill ? (
+            <Link
+              key={v.key}
+              href={`/bill/${v.bill_id}`}
+              className="block rounded-xl border border-[rgba(148,163,184,0.1)] bg-[rgba(148,163,184,0.03)] px-3 py-2.5 transition-colors hover:bg-[rgba(148,163,184,0.07)]"
+            >
+              {body}
+            </Link>
+          ) : (
+            <div key={v.key} className="rounded-xl border border-[rgba(148,163,184,0.1)] bg-[rgba(148,163,184,0.03)] px-3 py-2.5">
+              {body}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 px-1 text-[9px] text-[#475569]">
+        Positions from official House Clerk / Senate roll-call records.
+      </div>
+    </div>
+  );
+}
+
 function Panel({ children }: { children: React.ReactNode }) {
   return (
     <div className="glass scroll-slim pointer-events-auto absolute top-[118px] bottom-4 right-4 w-[420px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl p-4">
@@ -183,10 +242,19 @@ function Stat({ n, label }: { n: string; label: string }) {
 function Freshness({ fetchedAt }: { fetchedAt: string | null }) {
   if (!fetchedAt) return null;
   return (
-    <div className="mt-5 flex items-center gap-2 rounded-xl border border-[rgba(148,163,184,0.1)] px-3 py-2 text-[10px] text-[#64748b]">
-      <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#34d399]" />
-      Data fetched {fmtDate(fetchedAt.slice(0, 10))} from official sources via Congress.gov roster & GovTrack ·
-      boundaries: U.S. Census
+    <div className="mt-5 space-y-2">
+      <Link
+        href="/learn"
+        className="block rounded-xl border border-[rgba(129,140,248,0.25)] bg-[rgba(129,140,248,0.07)] px-3 py-2.5 text-[11px] text-[#a5b4fc] transition-colors hover:bg-[rgba(129,140,248,0.12)]"
+      >
+        🎓 New to this? <span className="font-semibold">How a bill becomes law</span> — a 2-minute plain-English
+        guide →
+      </Link>
+      <div className="flex items-center gap-2 rounded-xl border border-[rgba(148,163,184,0.1)] px-3 py-2 text-[10px] text-[#64748b]">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#34d399]" />
+        Data fetched {fmtDate(fetchedAt.slice(0, 10))} from official sources via Congress.gov roster & GovTrack ·
+        boundaries: U.S. Census
+      </div>
     </div>
   );
 }

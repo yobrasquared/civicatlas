@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBills, getMembers } from "../../../lib/data";
+import { getBills, getMembers, getVotes } from "../../../lib/data";
 import { fmtDate } from "../../../lib/status";
 import { STATE_NAMES, ordinal } from "../../../lib/states";
 import { Avatar, SourceChip, StatusBadge, Stepper, TopicTags } from "../../../components/cards";
+import { VoteCard } from "../../../components/votes";
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ bills, fetched_at }, { members }] = await Promise.all([getBills(), getMembers()]);
+  const [{ bills, fetched_at }, { members }, { votes }] = await Promise.all([getBills(), getMembers(), getVotes()]);
   const bill = bills.find((b) => b.id === id);
   if (!bill) notFound();
+
+  const billVotes = votes.filter((v) => v.bill_id === id);
+  const roster = members.map((m) => ({ id: m.id, name: m.name, party: m.party, state: m.state }));
 
   const sponsorMember = bill.sponsor ? members.find((m) => m.id === bill.sponsor!.id) : null;
   const related = bills
@@ -50,7 +54,12 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
         )}
 
         <section className="glass-soft rise mt-5 rounded-2xl p-5">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748b]">Where it stands</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748b]">Where it stands</h2>
+            <Link href="/learn" className="text-[10px] text-[#a5b4fc] transition-colors hover:text-[#5eead4]">
+              How does this process work? →
+            </Link>
+          </div>
           <div className="mt-4">
             <Stepper bill={bill} />
           </div>
@@ -85,6 +94,24 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
                 <div className="text-[11px] text-[#5eead4]">View full record →</div>
               </div>
             </Link>
+          </section>
+        )}
+
+        {billVotes.length > 0 && (
+          <section className="glass-soft rise mt-4 rounded-2xl p-5">
+            <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748b]">
+              Recorded votes on this bill
+            </h2>
+            <p className="mt-2 text-[11px] leading-relaxed text-[#8fa1bb]">
+              Member positions come directly from the official House Clerk and Senate roll-call records. Procedural
+              votes (like cloture) are about <em>how</em> the chamber proceeds — they are not the same as voting for
+              or against the bill itself.
+            </p>
+            <div className="mt-3 space-y-3">
+              {billVotes.map((v) => (
+                <VoteCard key={v.key} vote={v} roster={roster} />
+              ))}
+            </div>
           </section>
         )}
 

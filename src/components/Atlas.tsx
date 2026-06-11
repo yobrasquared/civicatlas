@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import CivicMap, { type HoverInfo, type MapHandle } from "./CivicMap";
 import SidePanel from "./SidePanel";
 import SearchBox from "./SearchBox";
-import type { Bill, BillsFile, Member, MembersFile } from "../lib/types";
+import type { Bill, BillsFile, Member, MembersFile, RollCallVote, VotesFile } from "../lib/types";
 import { parseGeoid, districtLabel } from "../lib/states";
 import { TOPIC_LABELS } from "../lib/status";
 import { PartyChip } from "./cards";
@@ -21,6 +21,7 @@ const TOPIC_ORDER = [
 export default function Atlas() {
   const [members, setMembers] = useState<Member[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [votes, setVotes] = useState<RollCallVote[]>([]);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [topic, setTopic] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
@@ -32,9 +33,11 @@ export default function Atlas() {
     Promise.all([
       fetch("/data/members.json").then((r) => r.json() as Promise<MembersFile>),
       fetch("/data/bills.json").then((r) => r.json() as Promise<BillsFile>),
-    ]).then(([m, b]) => {
+      fetch("/data/votes.json").then((r) => r.json() as Promise<VotesFile>),
+    ]).then(([m, b, v]) => {
       setMembers(m.members);
       setBills(b.bills);
+      setVotes(v.votes);
       setFetchedAt(b.fetched_at);
     });
   }, []);
@@ -197,6 +200,7 @@ export default function Atlas() {
         selection={selection}
         members={members}
         bills={bills}
+        votes={votes}
         topic={topic}
         activity={activity}
         fetchedAt={fetchedAt}
