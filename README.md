@@ -12,6 +12,8 @@ A nonpartisan, source-linked, map-first view of U.S. government activity. Zoom i
 - **Topic filters** — 16 neutral policy areas recolor the map and feeds in real time.
 - **Bill pages** — status stepper (Introduced → Law), plain-English status, major-action timeline, sponsor, related bills, and official source links.
 - **Official profiles** — photo, term info, sponsored bills, enacted laws, transparent activity stats, top policy areas, contact links.
+- **Roll-call votes from the official record** — member positions parsed directly from House Clerk and Senate LIS XML. Vote breakdowns on bill pages (with a filterable full-chamber roster), voting records on profiles, and "how your delegation voted" in the district panel. Procedural votes are labeled as such.
+- **Civic education** — `/learn`: a plain-English "how a bill becomes law" journey and glossary.
 - **Search** — omnibox for bills, members, states, ZIPs, and addresses.
 - **Source-first trust system** — every page carries source chips (Official / Aggregator), data-freshness stamps, and methodology notes.
 
@@ -19,8 +21,9 @@ A nonpartisan, source-linked, map-first view of U.S. government activity. Zoom i
 
 ```bash
 npm install
-npm run ingest   # pulls fresh data (members, bills, boundaries) — keyless
-npm run dev      # http://localhost:3000
+npm run ingest        # members, bills, boundaries — keyless
+npm run ingest:votes  # roll-call votes from official House/Senate XML
+npm run dev           # http://localhost:3000
 ```
 
 ## Data sources
