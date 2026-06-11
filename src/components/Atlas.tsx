@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import CivicMap, { type HoverInfo, type MapHandle } from "./CivicMap";
+import CivicMap, { type HoverInfo, type MapHandle, type ViewContext } from "./CivicMap";
 import SidePanel from "./SidePanel";
 import SearchBox from "./SearchBox";
 import type { Bill, BillsFile, Member, MembersFile, RollCallVote, VotesFile } from "../lib/types";
@@ -10,7 +10,16 @@ import { parseGeoid, districtLabel } from "../lib/states";
 import { TOPIC_LABELS } from "../lib/status";
 import { PartyChip } from "./cards";
 
-type Selection = { state: string; district: number; geoid: string } | null;
+export type Selection = {
+  state: string;
+  district: number | null; // null = statewide view
+  geoid: string | null;
+  source: "pin" | "view"; // pin = explicit (click/search/zip), view = derived from panning
+} | null;
+
+// Zoom thresholds for the panel following the viewport
+const STATE_ZOOM = 4.3;
+const DISTRICT_ZOOM = 5.8;
 
 const TOPIC_ORDER = [
   "healthcare", "economy", "housing", "education", "environment", "taxes", "immigration",
@@ -73,17 +82,57 @@ export default function Atlas() {
     return acc;
   }, [members]);
 
-  function selectGeoid(geoid: string | null) {
-    if (!geoid) {
-      setSelection(null);
-      mapRef.current?.selectGeoid(null);
+  function pinGeoid(geoid: string) {
+    const parsed = parseGeoid(geoid);
+    if (parsed) setSelection({ ...parsed, geoid, source: "pin" });
+  }
+
+  function clearSelection() {
+    setSelection(null);
+    mapRef.current?.flyNational();
+  }
+
+  /** The panel follows the map: derive context from what's under the center after a user move. */
+  function handleViewContext({ geoid, zoom }: ViewContext) {
+    if (zoom < STATE_ZOOM) {
+      setSelection((p) => (p === null ? p : null));
       return;
     }
+    if (!geoid) return; // over open water etc. — keep current context
     const parsed = parseGeoid(geoid);
     if (!parsed) return;
-    setSelection({ ...parsed, geoid });
-    mapRef.current?.selectGeoid(geoid);
+    if (zoom >= DISTRICT_ZOOM) {
+      setSelection((p) =>
+        p && p.state === parsed.state && p.district === parsed.district ? p : { ...parsed, geoid, source: "view" }
+      );
+    } else {
+      setSelection((p) =>
+        p && p.state === parsed.state && p.district === null
+          ? p
+          : { state: parsed.state, district: null, geoid: null, source: "view" }
+      );
+    }
   }
+
+  // Single sync point: selection drives map highlight + camera
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+    if (!selection) {
+      m.selectGeoid(null, { fly: false });
+      m.highlightState(null);
+      return;
+    }
+    if (selection.district === null) {
+      m.selectGeoid(null, { fly: false });
+      m.highlightState(selection.state);
+      if (selection.source === "pin") m.flyToState(selection.state);
+    } else {
+      m.highlightState(null);
+      const geoid = selection.geoid ?? m.findSeat(selection.state, selection.district);
+      if (geoid) m.selectGeoid(geoid, { fly: selection.source === "pin" });
+    }
+  }, [selection]);
 
   async function handleLookup(q: { zip?: string; address?: string }): Promise<string | null> {
     try {
@@ -91,7 +140,7 @@ export default function Atlas() {
       const res = await fetch(`/api/lookup?${params}`);
       const data = await res.json();
       if (!res.ok) return data.error ?? "Lookup failed — try a full street address.";
-      selectGeoid(data.geoid);
+      pinGeoid(data.geoid);
       return null;
     } catch {
       return "Lookup failed — check your connection and try again.";
@@ -108,8 +157,9 @@ export default function Atlas() {
         ref={mapRef}
         activity={activity}
         maxActivity={maxActivity}
-        onSelect={selectGeoid}
+        onSelect={pinGeoid}
         onHover={setHover}
+        onViewContext={handleViewContext}
       />
 
       {/* top bar */}
@@ -131,11 +181,10 @@ export default function Atlas() {
           <SearchBox
             members={members}
             bills={bills}
-            onPickState={(abbr) => mapRef.current?.flyToState(abbr)}
+            onPickState={(abbr) => setSelection({ state: abbr, district: null, geoid: null, source: "pin" })}
             onPickMember={(m) => {
               if (m.chamber === "House") {
-                const geoid = mapRef.current?.selectSeat(m.state, m.district ?? 0);
-                if (geoid) setSelection({ state: m.state, district: m.district ?? 0, geoid });
+                setSelection({ state: m.state, district: m.district ?? 0, geoid: null, source: "pin" });
               } else {
                 router.push(`/official/${m.id}`);
               }
@@ -206,12 +255,12 @@ export default function Atlas() {
         topic={topic}
         activity={activity}
         fetchedAt={fetchedAt}
-        onClear={() => selectGeoid(null)}
+        onClear={clearSelection}
+        onPickState={(abbr) => setSelection({ state: abbr, district: null, geoid: null, source: "pin" })}
         onPickSeat={(key) => {
           const state = key.slice(0, 2);
           const district = parseInt(key.slice(3), 10);
-          const geoid = mapRef.current?.selectSeat(state, district);
-          if (geoid) setSelection({ state, district, geoid });
+          setSelection({ state, district, geoid: null, source: "pin" });
         }}
       />
     </div>

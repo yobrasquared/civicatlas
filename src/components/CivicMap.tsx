@@ -3,21 +3,28 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { parseGeoid } from "../lib/states";
+import { FIPS_TO_ABBR, parseGeoid } from "../lib/states";
+
+const ABBR_TO_FIPS = Object.fromEntries(Object.entries(FIPS_TO_ABBR).map(([f, a]) => [a, f]));
 
 export type HoverInfo = { geoid: string; x: number; y: number };
+export type ViewContext = { geoid: string | null; zoom: number };
 export type MapHandle = {
-  selectGeoid: (geoid: string | null) => void;
-  selectSeat: (state: string, district: number) => string | null;
+  selectGeoid: (geoid: string | null, opts?: { fly?: boolean }) => void;
+  findSeat: (state: string, district: number) => string | null;
   flyToState: (abbr: string) => void;
+  flyNational: () => void;
+  highlightState: (abbr: string | null) => void;
 };
 
 type Props = {
   /** activity keyed by "CA-12" / "AK-0" style seat keys */
   activity: Record<string, number>;
   maxActivity: number;
-  onSelect: (geoid: string | null) => void;
+  onSelect: (geoid: string) => void;
   onHover: (info: HoverInfo | null) => void;
+  /** fired after the user pans/zooms — reports the district under the visual center */
+  onViewContext: (ctx: ViewContext) => void;
 };
 
 type Feature = GeoJSON.Feature<GeoJSON.Geometry, { GEOID: string }>;
@@ -75,7 +82,7 @@ function nationalPadding(map: maplibregl.Map) {
 }
 
 const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
-  { activity, maxActivity, onSelect, onHover },
+  { activity, maxActivity, onSelect, onHover, onViewContext },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,9 +90,10 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
   const featuresRef = useRef<Feature[]>([]);
   const hoveredRef = useRef<string | null>(null);
   const selectedRef = useRef<string | null>(null);
+  const stateHighlightRef = useRef<string | null>(null);
   const readyRef = useRef(false);
-  const cbRef = useRef({ onSelect, onHover });
-  cbRef.current = { onSelect, onHover };
+  const cbRef = useRef({ onSelect, onHover, onViewContext });
+  cbRef.current = { onSelect, onHover, onViewContext };
   const activityRef = useRef({ activity, maxActivity });
   activityRef.current = { activity, maxActivity };
 
@@ -137,7 +145,7 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
       featuresRef.current = geojson.features as Feature[];
 
       map.addSource("districts", { type: "geojson", data: geojson, promoteId: "GEOID" });
-      map.addSource("states", { type: "geojson", data: "/data/states.geojson" });
+      map.addSource("states", { type: "geojson", data: "/data/states.geojson", promoteId: "GEOID" });
 
       const firstSymbol = map.getStyle().layers?.find((l) => l.type === "symbol")?.id;
 
@@ -193,7 +201,14 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
           id: "state-line",
           type: "line",
           source: "states",
-          paint: { "line-color": "rgba(203,213,225,0.35)", "line-width": 1.1 },
+          paint: {
+            "line-color": [
+              "case",
+              ["boolean", ["feature-state", "active"], false], "#5eead4",
+              "rgba(203,213,225,0.35)",
+            ],
+            "line-width": ["case", ["boolean", ["feature-state", "active"], false], 2.2, 1.1],
+          },
         },
         firstSymbol
       );
@@ -225,6 +240,36 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
         const f = e.features?.[0];
         if (f) cbRef.current.onSelect(f.properties.GEOID as string);
       });
+
+      // After USER pans/zooms (not programmatic flights), report the district
+      // under the visual center so the panel can follow the map.
+      let userMoved = false;
+      const emitContext = () => {
+        const w = map.getContainer().clientWidth;
+        const h = map.getContainer().clientHeight;
+        const cx = w >= 768 ? (w - 440) / 2 : w / 2;
+        const cy = w < 768 ? Math.max(80, (h - 160) / 2) : h / 2;
+        const feats = map.queryRenderedFeatures(
+          [
+            [cx - 30, cy - 30],
+            [cx + 30, cy + 30],
+          ],
+          { layers: ["district-fill"] }
+        );
+        cbRef.current.onViewContext({
+          geoid: (feats[0]?.properties.GEOID as string | undefined) ?? null,
+          zoom: map.getZoom(),
+        });
+      };
+      map.on("dragstart", () => (userMoved = true));
+      map.on("zoomstart", (e) => {
+        if (e.originalEvent) userMoved = true;
+      });
+      map.on("moveend", () => {
+        if (!userMoved) return;
+        userMoved = false;
+        emitContext();
+      });
     });
 
     return () => {
@@ -238,15 +283,16 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
 
   useEffect(paintActivity, [activity, maxActivity]);
 
-  const applySelection = (geoid: string | null) => {
+  const applySelection = (geoid: string | null, opts?: { fly?: boolean }) => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
-    if (selectedRef.current) {
+    if (selectedRef.current && selectedRef.current !== geoid) {
       map.setFeatureState({ source: "districts", id: selectedRef.current }, { selected: false });
     }
     selectedRef.current = geoid;
     if (!geoid) return;
     map.setFeatureState({ source: "districts", id: geoid }, { selected: true });
+    if (opts?.fly === false) return;
     const f = featuresRef.current.find((x) => x.properties.GEOID === geoid);
     if (f) {
       try {
@@ -264,14 +310,31 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
 
   useImperativeHandle(ref, () => ({
     selectGeoid: applySelection,
-    selectSeat: (state: string, district: number) => {
+    findSeat: (state: string, district: number) => {
       const f = featuresRef.current.find((x) => {
         const p = parseGeoid(x.properties.GEOID);
         return p?.state === state && p?.district === district;
       });
-      if (!f) return null;
-      applySelection(f.properties.GEOID);
-      return f.properties.GEOID;
+      return f?.properties.GEOID ?? null;
+    },
+    highlightState: (abbr: string | null) => {
+      const map = mapRef.current;
+      if (!map || !readyRef.current) return;
+      const fips = abbr ? ABBR_TO_FIPS[abbr] : null;
+      if (stateHighlightRef.current && stateHighlightRef.current !== fips) {
+        map.setFeatureState({ source: "states", id: stateHighlightRef.current }, { active: false });
+      }
+      stateHighlightRef.current = fips ?? null;
+      if (fips) map.setFeatureState({ source: "states", id: fips }, { active: true });
+    },
+    flyNational: () => {
+      const map = mapRef.current;
+      if (!map || !readyRef.current) return;
+      try {
+        map.fitBounds([-124.8, 24.4, -66.9, 49.4], { padding: nationalPadding(map), duration: 900, essential: true });
+      } catch {
+        /* keep view */
+      }
     },
     flyToState: (abbr: string) => {
       const map = mapRef.current;

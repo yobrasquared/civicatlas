@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Bill, Member, RollCallVote } from "../lib/types";
-import { districtLabel } from "../lib/states";
+import type { Selection } from "./Atlas";
+import { STATE_NAMES, districtLabel } from "../lib/states";
 import { fmtDate } from "../lib/status";
 import { BillRow, RepCard } from "./cards";
 import { PositionBadge } from "./votes";
-
-type Selection = { state: string; district: number; geoid: string } | null;
 
 type Props = {
   selection: Selection;
@@ -19,27 +18,44 @@ type Props = {
   activity: Record<string, number>;
   fetchedAt: string | null;
   onClear: () => void;
+  onPickState: (abbr: string) => void;
   onPickSeat: (seatKey: string) => void;
 };
 
 const TABS = ["Moving now", "New laws", "Most active"] as const;
 
-export default function SidePanel({ selection, members, bills, votes, topic, activity, fetchedAt, onClear, onPickSeat }: Props) {
+export default function SidePanel({ selection, members, bills, votes, topic, activity, fetchedAt, onClear, onPickState, onPickSeat }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Moving now");
   // Mobile bottom-sheet state; ignored on md+ where the panel is a fixed side dock.
   const [expanded, setExpanded] = useState(false);
   useEffect(() => {
-    if (selection?.geoid) setExpanded(true);
-  }, [selection?.geoid]);
+    // only explicit selections (click/search/ZIP) pop the sheet open — panning shouldn't
+    if (selection && selection.source === "pin") setExpanded(true);
+  }, [selection]);
   const sheet = { expanded, onToggle: () => setExpanded((e) => !e) };
 
   const topicBills = topic ? bills.filter((b) => b.topics.includes(topic)) : bills;
 
-  if (selection) {
+  if (selection && selection.district === null) {
+    return (
+      <Panel {...sheet}>
+        <StateView
+          key={selection.state}
+          state={selection.state}
+          members={members}
+          bills={topicBills}
+          topic={topic}
+          fetchedAt={fetchedAt}
+          onClear={onClear}
+        />
+      </Panel>
+    );
+  }
+
+  if (selection && selection.district !== null) {
+    const district = selection.district;
     const delegation = members.filter(
-      (m) =>
-        m.state === selection.state &&
-        (m.chamber === "Senate" || (m.district ?? 0) === selection.district)
+      (m) => m.state === selection.state && (m.chamber === "Senate" || (m.district ?? 0) === district)
     );
     const ids = new Set(delegation.map((m) => m.id));
     const delegationBills = topicBills
@@ -56,12 +72,18 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
             ← Back to national view
           </button>
           <h2 className="text-[17px] font-semibold leading-tight text-[#f1f6fc]">
-            {districtLabel(selection.state, selection.district)}
+            {districtLabel(selection.state, district)}
           </h2>
           <p className="mt-1 text-[11px] text-[#8fa1bb]">
             {delegationBills.length} bill{delegationBills.length === 1 ? "" : "s"} from this delegation in the
             recent window{topic ? ` · filtered by topic` : ""}
           </p>
+          <button
+            onClick={() => onPickState(selection.state)}
+            className="mt-1.5 text-[11px] text-[#7dd3fc] transition-colors hover:text-[#5eead4]"
+          >
+            View all of {STATE_NAMES[selection.state] ?? selection.state} →
+          </button>
 
           <div className="mt-4 space-y-2">
             <SectionLabel>Your representative</SectionLabel>
@@ -113,8 +135,8 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
       <div className="rise">
         <h2 className="text-[17px] font-semibold leading-tight text-[#f1f6fc]">Live from the 119th Congress</h2>
         <p className="mt-1 text-[11px] leading-relaxed text-[#8fa1bb]">
-          Real legislation, real votes, real laws — every item links to the official record. Click any district, or
-          search your ZIP code to find your representatives.
+          Real legislation, real votes, real laws — every item links to the official record. Move the map and this
+          panel follows: zoom into a state or district, click one, or search your ZIP code.
         </p>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
@@ -167,6 +189,81 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
         <Freshness fetchedAt={fetchedAt} />
       </div>
     </Panel>
+  );
+}
+
+function StateView({
+  state,
+  members,
+  bills,
+  topic,
+  fetchedAt,
+  onClear,
+}: {
+  state: string;
+  members: Member[];
+  bills: Bill[];
+  topic: string | null;
+  fetchedAt: string | null;
+  onClear: () => void;
+}) {
+  const delegation = members.filter((m) => m.state === state);
+  const counts = new Map<string, number>();
+  for (const b of bills) if (b.sponsor && b.sponsor.state === state) counts.set(b.sponsor.id, (counts.get(b.sponsor.id) ?? 0) + 1);
+  const countFor = (m: Member) => counts.get(m.id) ?? 0;
+  const senators = delegation.filter((m) => m.chamber === "Senate");
+  const house = delegation
+    .filter((m) => m.chamber === "House")
+    .sort((a, b) => countFor(b) - countFor(a) || (a.district ?? 0) - (b.district ?? 0));
+  const stateBills = bills
+    .filter((b) => b.sponsor?.state === state)
+    .sort((a, b) => b.status_date.localeCompare(a.status_date));
+
+  return (
+    <div className="rise">
+      <button onClick={onClear} className="mb-3 text-[11px] text-[#8fa1bb] transition-colors hover:text-[#5eead4]">
+        ← Back to national view
+      </button>
+      <h2 className="text-[17px] font-semibold leading-tight text-[#f1f6fc]">{STATE_NAMES[state] ?? state}</h2>
+      <p className="mt-1 text-[11px] text-[#8fa1bb]">
+        {stateBills.length} bill{stateBills.length === 1 ? "" : "s"} from this state’s delegation in the recent
+        window{topic ? " · filtered by topic" : ""} · zoom in on the map for district detail
+      </p>
+
+      <div className="mt-4 space-y-2">
+        <SectionLabel>Senators</SectionLabel>
+        {senators.map((m) => (
+          <RepCard key={m.id} member={m} billCount={countFor(m)} />
+        ))}
+        {house.length > 0 && (
+          <>
+            <SectionLabel>
+              House delegation ({house.length}) — by recent activity
+            </SectionLabel>
+            <div className="scroll-slim max-h-72 space-y-2 overflow-y-auto pr-1">
+              {house.map((m) => (
+                <RepCard key={m.id} member={m} billCount={countFor(m)} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mt-5">
+        <SectionLabel>Recent bills from {STATE_NAMES[state] ?? state}</SectionLabel>
+        <div className="mt-1 space-y-0.5">
+          {stateBills.slice(0, 12).map((b) => (
+            <BillRow key={b.id} bill={b} />
+          ))}
+          {stateBills.length === 0 && (
+            <p className="px-1 py-3 text-xs text-[#64748b]">
+              No bills from this delegation in the current data window{topic ? " for this topic — try clearing the filter" : ""}.
+            </p>
+          )}
+        </div>
+      </div>
+      <Freshness fetchedAt={fetchedAt} />
+    </div>
   );
 }
 
