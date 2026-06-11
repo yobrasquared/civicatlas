@@ -67,7 +67,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
             <strong className="text-[#e6edf7]">{bill.status_raw}</strong> as of {fmtDate(bill.status_date)}.{" "}
             {bill.status_desc}
           </p>
-          {!bill.is_alive && bill.status !== "law" && (
+          {!bill.is_alive && bill.status !== "law" && bill.status !== "agreed" && (
             <p className="mt-2 text-[11px] text-[#94a3b8]">
               This bill is no longer moving. Most bills never receive a vote — that’s normal in the legislative
               process, not necessarily a scandal.

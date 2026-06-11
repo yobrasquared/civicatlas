@@ -87,7 +87,7 @@ const STATUS_MAP = {
   fail_originating_senate: "failed",
   fail_second_house: "failed",
   fail_second_senate: "failed",
-  passed_simpleres: "passed_both",
+  passed_simpleres: "agreed",
   passed_concurrentres: "passed_both",
   passed_constamend: "passed_both",
 };
@@ -139,7 +139,7 @@ function trimBill(b) {
     is_alive: b.is_alive,
     law_num: b.sliplawnum || null,
     link: `https://www.govtrack.us${b.link.replace(/^https?:\/\/www\.govtrack\.us/, "")}`,
-    congress_link: `https://www.congress.gov/bill/${b.congress}th-congress/${b.bill_type_label.toLowerCase().replace(/\./g, "").replace(/ /g, "-")}/${b.number}`,
+    congress_link: `https://www.congress.gov/bill/${b.congress}th-congress/${b.bill_type.replace(/_/g, "-")}/${b.number}`,
     topics: classify(b.title_without_number || ""),
     sponsor: b.sponsor
       ? {

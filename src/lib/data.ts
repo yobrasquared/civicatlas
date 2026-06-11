@@ -14,6 +14,11 @@ export const getMembers = cache(async (): Promise<MembersFile> => {
 });
 
 export const getVotes = cache(async (): Promise<VotesFile> => {
-  const raw = await readFile(resolve(process.cwd(), "public/data/votes.json"), "utf8");
-  return JSON.parse(raw);
+  try {
+    const raw = await readFile(resolve(process.cwd(), "public/data/votes.json"), "utf8");
+    return JSON.parse(raw);
+  } catch {
+    // votes are additive — pages still work if the vote ingest hasn't run
+    return { fetched_at: "", source: "", votes: [] };
+  }
 });

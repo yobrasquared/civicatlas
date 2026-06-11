@@ -32,10 +32,12 @@ export default function SearchBox({ members, bills, onPickState, onPickMember, o
 
   const norm = q.trim().toLowerCase();
   const isZip = /^\d{5}(-\d{4})?$/.test(norm);
-  const looksLikeAddress = !isZip && /\d/.test(norm) && norm.length > 8;
+  // "H.R. 9238", "S. 47", "H.Res. 1335" etc. are bill lookups, not street addresses
+  const looksLikeBillNumber = /^(h|s)\.?\s*(r|j|con)?\.?\s*(res)?\.?\s*\d+$/i.test(norm.replace(/\s+/g, " "));
+  const looksLikeAddress = !isZip && !looksLikeBillNumber && /\d/.test(norm) && norm.length > 8;
 
   const results = useMemo(() => {
-    if (norm.length < 2 || isZip || looksLikeAddress) return { members: [], bills: [], states: [] };
+    if (norm.length < 2 || isZip) return { members: [], bills: [], states: [] };
     const stateHits = Object.entries(STATE_NAMES)
       .filter(([abbr, name]) => name.toLowerCase().startsWith(norm) || abbr.toLowerCase() === norm)
       .slice(0, 3);
@@ -51,7 +53,7 @@ export default function SearchBox({ members, bills, onPickState, onPickMember, o
       )
       .slice(0, 6);
     return { members: memberHits, bills: billHits, states: stateHits };
-  }, [norm, isZip, looksLikeAddress, members, bills]);
+  }, [norm, isZip, members, bills]);
 
   async function runLookup() {
     setBusy(true);

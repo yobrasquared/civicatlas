@@ -146,7 +146,13 @@ export function Stepper({ bill }: { bill: Bill }) {
           );
         })}
       </div>
-      {offTrack && (
+      {offTrack && bill.status === "agreed" && (
+        <div className="mt-3 rounded-lg px-3 py-2 text-xs" style={{ color: meta.color, background: meta.dim }}>
+          This resolution was <strong>agreed to</strong>. Simple resolutions only need approval from their own
+          chamber — they do not go to the President and do not become public law.
+        </div>
+      )}
+      {offTrack && bill.status !== "agreed" && (
         <div className="mt-3 rounded-lg px-3 py-2 text-xs" style={{ color: meta.color, background: meta.dim }}>
           This bill is off the standard track: <strong>{meta.label}</strong> — {bill.status_raw}
         </div>

@@ -33,7 +33,9 @@ export default function Atlas() {
     Promise.all([
       fetch("/data/members.json").then((r) => r.json() as Promise<MembersFile>),
       fetch("/data/bills.json").then((r) => r.json() as Promise<BillsFile>),
-      fetch("/data/votes.json").then((r) => r.json() as Promise<VotesFile>),
+      fetch("/data/votes.json")
+        .then((r) => r.json() as Promise<VotesFile>)
+        .catch((): VotesFile => ({ fetched_at: "", source: "", votes: [] })),
     ]).then(([m, b, v]) => {
       setMembers(m.members);
       setBills(b.bills);

@@ -74,6 +74,12 @@ export async function GET(req: NextRequest) {
       const geos = match.geographies ?? {};
       const cdKey = Object.keys(geos).find((k) => /congressional district/i.test(k));
       geoid = cdKey ? geos[cdKey]?.[0]?.GEOID ?? null : null;
+      // The geocoder returns current-Congress districts; our boundary file is CD118.
+      // If they disagree (mid-decade redistricting), fall back to point-in-polygon.
+      if (geoid) {
+        const districts = await loadDistricts();
+        if (!districts.some((f) => f.properties.GEOID === geoid)) geoid = null;
+      }
       geoid ??= await pointToGeoid(match.coordinates.x, match.coordinates.y);
     } else {
       return NextResponse.json({ error: "Provide ?zip= or ?address=" }, { status: 400 });

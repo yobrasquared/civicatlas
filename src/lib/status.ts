@@ -6,6 +6,7 @@ export const STATUS_META: Record<BillStatus, { label: string; color: string; dim
   passed_one: { label: "Passed One Chamber", color: "#2dd4bf", dim: "rgba(45,212,191,.14)" },
   passed_both: { label: "Passed Both Chambers", color: "#818cf8", dim: "rgba(129,140,248,.16)" },
   law: { label: "Became Law", color: "#34d399", dim: "rgba(52,211,153,.16)" },
+  agreed: { label: "Agreed To (Resolution)", color: "#4ade80", dim: "rgba(74,222,128,.13)" },
   vetoed: { label: "Vetoed", color: "#fb923c", dim: "rgba(251,146,60,.15)" },
   stalled: { label: "Stalled", color: "#64748b", dim: "rgba(100,116,139,.15)" },
   failed: { label: "Failed", color: "#64748b", dim: "rgba(100,116,139,.15)" },

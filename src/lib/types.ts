@@ -21,6 +21,7 @@ export type BillStatus =
   | "passed_one"
   | "passed_both"
   | "law"
+  | "agreed"
   | "vetoed"
   | "stalled"
   | "failed";

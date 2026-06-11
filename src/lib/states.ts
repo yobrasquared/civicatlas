@@ -30,6 +30,7 @@ export function parseGeoid(geoid: string): { state: string; district: number } |
   const abbr = FIPS_TO_ABBR[geoid.slice(0, 2)];
   if (!abbr) return null;
   const raw = parseInt(geoid.slice(2), 10);
+  if (Number.isNaN(raw)) return null;
   return { state: abbr, district: raw >= 98 ? 0 : raw };
 }
 
