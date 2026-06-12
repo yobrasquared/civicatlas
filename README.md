@@ -14,7 +14,11 @@ A nonpartisan, source-linked, map-first view of U.S. government activity. Zoom i
 - **Official profiles** — photo, term info, sponsored bills, enacted laws, transparent activity stats, top policy areas, contact links.
 - **Roll-call votes from the official record** — member positions parsed directly from House Clerk and Senate LIS XML. Vote breakdowns on bill pages (with a filterable full-chamber roster), voting records on profiles, and "how your delegation voted" in the district panel. Procedural votes are labeled as such.
 - **Civic education** — `/learn`: a plain-English "how a bill becomes law" journey and glossary.
-- **Search** — omnibox for bills, members, states, ZIPs, and addresses.
+- **Search** — omnibox for bills, members, states, ZIPs, and addresses, with full keyboard navigation.
+- **Viewport-aware panels** — pan or zoom and the panel follows: national → state overview → district.
+- **Follow & digest** — star bills/members (device-local only, never sent to a server) and see their latest activity at `/digest`.
+- **Compare two officials** — `/compare`: side-by-side records, vote agreement % over shared roll calls, and every vote where they split.
+- **AI plain-English summaries** — clearly-labeled, confidence-scored summaries on top bill pages, generated closed-corpus from the official record only (`npm run summarize`, needs `NVIDIA_API_KEY` in `.env.local`).
 - **Source-first trust system** — every page carries source chips (Official / Aggregator), data-freshness stamps, and methodology notes.
 
 ## Run it
