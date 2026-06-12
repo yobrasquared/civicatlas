@@ -75,5 +75,22 @@ export type RollCallVote = {
 
 export type VotesFile = { fetched_at: string; source: string; votes: RollCallVote[] };
 
+export type AISummary = {
+  one_liner: string;
+  detailed: string;
+  who_affected: string;
+  next_step: string;
+  confidence: "high" | "medium" | "low";
+  confidence_reason: string;
+  model: string;
+  generated_at: string;
+  for_status: string;
+  for_status_date: string;
+  basis: string;
+  source_data_fetched_at: string;
+};
+
+export type SummariesFile = { generated_at: string; model: string; summaries: Record<string, AISummary> };
+
 export type MembersFile = { fetched_at: string; source: string; source_url: string; members: Member[] };
 export type BillsFile = { fetched_at: string; source: string; source_url: string; congress: number; bills: Bill[] };

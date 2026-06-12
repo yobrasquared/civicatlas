@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBills, getMembers, getVotes } from "../../../lib/data";
+import { getBills, getMembers, getSummaries, getVotes } from "../../../lib/data";
 import { fmtDate } from "../../../lib/status";
 import { STATE_NAMES, ordinal } from "../../../lib/states";
 import { Avatar, SourceChip, StatusBadge, Stepper, TopicTags } from "../../../components/cards";
@@ -9,9 +9,16 @@ import FollowButton from "../../../components/FollowButton";
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ bills, fetched_at }, { members }, { votes }] = await Promise.all([getBills(), getMembers(), getVotes()]);
+  const [{ bills, fetched_at }, { members }, { votes }, { summaries }] = await Promise.all([
+    getBills(),
+    getMembers(),
+    getVotes(),
+    getSummaries(),
+  ]);
   const bill = bills.find((b) => b.id === id);
   if (!bill) notFound();
+  const ai = summaries[id];
+  const aiStale = ai && (ai.for_status !== bill.status_raw || ai.for_status_date !== bill.status_date);
 
   const billVotes = votes.filter((v) => v.bill_id === id);
   const roster = members.map((m) => ({ id: m.id, name: m.name, party: m.party, state: m.state }));
@@ -42,6 +49,49 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
             <TopicTags topics={bill.topics} />
           </div>
         </header>
+
+        {ai && (
+          <section className="rise mt-5 rounded-2xl border border-[rgba(251,191,36,0.2)] bg-[rgba(251,191,36,0.04)] p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <SourceChip kind="ai" label="AI-assisted plain-English summary" />
+              <span
+                className="rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+                style={{
+                  color: ai.confidence === "high" ? "#34d399" : ai.confidence === "medium" ? "#fbbf24" : "#fb923c",
+                  background: "rgba(148,163,184,0.08)",
+                }}
+              >
+                {ai.confidence} confidence — {ai.confidence_reason}
+              </span>
+            </div>
+            <p className="mt-3 text-[15px] font-medium leading-snug text-[#f1f6fc]">{ai.one_liner}</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-[#cbd5e1]">{ai.detailed}</p>
+            <div className="mt-3 grid gap-2 text-[12px] sm:grid-cols-2">
+              <div className="rounded-lg bg-[rgba(148,163,184,0.05)] px-3 py-2">
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-[#64748b]">
+                  Who is affected
+                </span>
+                <span className="text-[#b9c7da]">{ai.who_affected}</span>
+              </div>
+              <div className="rounded-lg bg-[rgba(148,163,184,0.05)] px-3 py-2">
+                <span className="block text-[9px] font-semibold uppercase tracking-wide text-[#64748b]">
+                  Next step
+                </span>
+                <span className="text-[#b9c7da]">{ai.next_step}</span>
+              </div>
+            </div>
+            {aiStale && (
+              <p className="mt-3 rounded-lg bg-[rgba(251,146,60,0.1)] px-3 py-2 text-[11px] text-[#fb923c]">
+                ⚠ This summary was generated before the bill’s latest action ({fmtDate(bill.status_date)}) — the
+                status sections below are more current.
+              </p>
+            )}
+            <p className="mt-3 text-[9px] leading-relaxed text-[#64748b]">
+              Generated {fmtDate(ai.generated_at.slice(0, 10))} from the {ai.basis}. AI summaries can be imperfect —
+              the official sources at the bottom of this page are always authoritative.
+            </p>
+          </section>
+        )}
 
         {bill.law_num && (
           <div className="rise mt-5 rounded-2xl border border-[rgba(52,211,153,0.3)] bg-[rgba(52,211,153,0.08)] p-4">

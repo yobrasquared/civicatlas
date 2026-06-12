@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "ingest": "node scripts/ingest.mjs",
-    "ingest:votes": "node scripts/ingest-votes.mjs"
+    "ingest:votes": "node scripts/ingest-votes.mjs",
+    "summarize": "node scripts/summarize.mjs"
   },
   "dependencies": {
     "maplibre-gl": "^5.24.0",
