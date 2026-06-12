@@ -37,6 +37,7 @@ export default function Atlas() {
   const [topic, setTopic] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [hover, setHover] = useState<HoverInfo | null>(null);
+  const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<MapHandle>(null);
   const router = useRouter();
   const follows = useFollows();
@@ -118,6 +119,45 @@ export default function Atlas() {
     }
   }
 
+  /** Read ?seat=CA-12 / ?state=TX from the URL into a selection. */
+  function applyUrlSelection(allowClear: boolean) {
+    const sp = new URLSearchParams(window.location.search);
+    const seat = sp.get("seat")?.toUpperCase();
+    const st = sp.get("state")?.toUpperCase();
+    if (seat && /^[A-Z]{2}-\d{1,2}$/.test(seat)) {
+      const [s, d] = seat.split("-");
+      setSelection({ state: s, district: parseInt(d, 10), geoid: null, source: "pin" });
+    } else if (st && /^[A-Z]{2}$/.test(st)) {
+      setSelection({ state: st, district: null, geoid: null, source: "pin" });
+    } else if (allowClear) {
+      setSelection(null);
+      mapRef.current?.flyNational();
+    }
+  }
+
+  // Deep links: apply the URL once the map can fly; back/forward re-applies
+  useEffect(() => {
+    if (!mapReady) return;
+    applyUrlSelection(false);
+    const onPop = () => applyUrlSelection(true);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady]);
+
+  // Selection → shareable URL (pins create history entries; panning just updates in place)
+  useEffect(() => {
+    if (!mapReady) return;
+    const target = !selection
+      ? "/"
+      : selection.district === null
+        ? `/?state=${selection.state}`
+        : `/?seat=${selection.state}-${selection.district}`;
+    if (window.location.pathname + window.location.search === target) return;
+    if (selection?.source === "pin") window.history.pushState(null, "", target);
+    else window.history.replaceState(null, "", target);
+  }, [selection, mapReady]);
+
   // Single sync point: selection drives map highlight + camera
   useEffect(() => {
     const m = mapRef.current;
@@ -136,7 +176,7 @@ export default function Atlas() {
       const geoid = selection.geoid ?? m.findSeat(selection.state, selection.district);
       if (geoid) m.selectGeoid(geoid, { fly: selection.source === "pin" });
     }
-  }, [selection]);
+  }, [selection, mapReady]);
 
   async function handleLookup(q: { zip?: string; address?: string }): Promise<string | null> {
     try {
@@ -179,6 +219,7 @@ export default function Atlas() {
         onSelect={pinGeoid}
         onHover={setHover}
         onViewContext={handleViewContext}
+        onReady={() => setMapReady(true)}
       />
 
       {/* top bar */}

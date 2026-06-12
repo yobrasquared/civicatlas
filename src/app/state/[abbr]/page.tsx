@@ -5,6 +5,18 @@ import { TOPIC_LABELS, fmtDate } from "../../../lib/status";
 import { SourceChip } from "../../../components/cards";
 import LegislatorGrid from "../../../components/LegislatorGrid";
 
+export async function generateMetadata({ params }: { params: Promise<{ abbr: string }> }) {
+  const { abbr } = await params;
+  const data = await getStateData(abbr.toUpperCase());
+  if (!data) return { title: "State not found" };
+  const description = `${data.legislators.length} current ${data.name} state legislators and the ${data.bills.length} most recently active state bills, from official legislative records.`;
+  return {
+    title: `${data.name} State Legislature — bills & legislators`,
+    description,
+    openGraph: { title: `${data.name} State Legislature`, description },
+  };
+}
+
 export default async function StatePage({ params }: { params: Promise<{ abbr: string }> }) {
   const { abbr } = await params;
   const data = await getStateData(abbr.toUpperCase());

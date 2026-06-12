@@ -212,7 +212,11 @@ function ingestBoundaries() {
 /* ---------------- run ---------------- */
 const members = await ingestMembers();
 const bills = await ingestBills();
-ingestBoundaries();
+if (process.env.SKIP_BOUNDARIES) {
+  console.log("→ boundaries: skipped (SKIP_BOUNDARIES set — using files already in repo)");
+} else {
+  ingestBoundaries();
+}
 
 // Per-district + per-state activity (count of recent bills by sponsor's seat)
 const activity = {};

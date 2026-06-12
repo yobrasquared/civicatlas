@@ -25,6 +25,8 @@ type Props = {
   onHover: (info: HoverInfo | null) => void;
   /** fired after the user pans/zooms — reports the district under the visual center */
   onViewContext: (ctx: ViewContext) => void;
+  /** fired once boundaries are loaded and the map is interactive */
+  onReady: () => void;
 };
 
 type Feature = GeoJSON.Feature<GeoJSON.Geometry, { GEOID: string }>;
@@ -103,7 +105,7 @@ function nationalPadding(map: maplibregl.Map) {
 }
 
 const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
-  { activity, maxActivity, onSelect, onHover, onViewContext },
+  { activity, maxActivity, onSelect, onHover, onViewContext, onReady },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -123,8 +125,8 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
     if (suppressTimerRef.current) clearTimeout(suppressTimerRef.current);
     suppressTimerRef.current = setTimeout(() => (suppressRef.current = false), 1800);
   };
-  const cbRef = useRef({ onSelect, onHover, onViewContext });
-  cbRef.current = { onSelect, onHover, onViewContext };
+  const cbRef = useRef({ onSelect, onHover, onViewContext, onReady });
+  cbRef.current = { onSelect, onHover, onViewContext, onReady };
   const activityRef = useRef({ activity, maxActivity });
   activityRef.current = { activity, maxActivity };
 
@@ -258,6 +260,7 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
 
       readyRef.current = true;
       paintActivity();
+      cbRef.current.onReady();
 
       const clearHover = () => {
         if (hoveredRef.current) {

@@ -5,7 +5,28 @@ import { TOPIC_LABELS, fmtDate } from "../../../lib/status";
 import { STATE_NAMES } from "../../../lib/states";
 import { Avatar, BillRow, SourceChip } from "../../../components/cards";
 import { KindChip, PositionBadge } from "../../../components/votes";
+import { ISSUES_URL } from "../../../lib/site";
 import FollowButton from "../../../components/FollowButton";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const [{ bills }, { members }] = await Promise.all([getBills(), getMembers()]);
+  const member = members.find((m) => m.id === id);
+  if (!member) return { title: "Official not found" };
+  const sponsored = bills.filter((b) => b.sponsor?.id === id);
+  const laws = sponsored.filter((b) => b.status === "law").length;
+  const seat = `${STATE_NAMES[member.state] ?? member.state}${
+    member.chamber === "House" && (member.district ?? 0) > 0 ? ` District ${member.district}` : ""
+  }`;
+  const description = `${member.title} for ${seat} (${member.party}). ${sponsored.length} recently active sponsored bills${
+    laws ? `, ${laws} became law` : ""
+  }. Voting record, sponsored legislation, and official sources on CivicAtlas.`;
+  return {
+    title: `${member.name} — ${member.title}, ${seat}`,
+    description,
+    openGraph: { title: `${member.name} — ${member.title}, ${seat}`, description, type: "profile" },
+  };
+}
 
 export default async function OfficialPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -207,7 +228,15 @@ export default async function OfficialPage({ params }: { params: Promise<{ id: s
             />
             <SourceChip kind="aggregator" label="GovTrack profile" href={`https://www.govtrack.us/congress/members/${member.id}`} />
           </div>
-          <div className="mt-3 text-[10px] text-[#475569]">Data fetched {fmtDate(fetched_at.slice(0, 10))}</div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#475569]">
+            <span>Data fetched {fmtDate(fetched_at.slice(0, 10))}</span>
+            <Link href="/methodology" className="text-[#64748b] hover:text-[#5eead4]">
+              How we compute this
+            </Link>
+            <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer" className="text-[#64748b] hover:text-[#fb923c]">
+              ⚑ Report an issue
+            </a>
+          </div>
         </section>
       </div>
     </main>

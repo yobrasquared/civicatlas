@@ -1,0 +1,65 @@
+name: Daily data refresh
+
+on:
+  schedule:
+    - cron: "30 10 * * *" # 10:30 UTC daily (~6:30am ET, after overnight record updates)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_CcBm4hopHEfe9naYWEwchSH8
+      VERCEL_PROJECT_ID: prj_sLtQVv8OmwWogRmrrErxQBXvim3d
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh federal bills & members (boundaries already in repo)
+        run: SKIP_BOUNDARIES=1 node scripts/ingest.mjs
+
+      - name: Refresh roll-call votes (official House/Senate XML)
+        run: node scripts/ingest-votes.mjs
+
+      - name: Refresh state legislatures
+        env:
+          OPENSTATES_API_KEY: ${{ secrets.OPENSTATES_API_KEY }}
+        run: node scripts/ingest-states.mjs
+
+      - name: Regenerate AI summaries for moved bills
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: node scripts/summarize.mjs 60
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "civicatlas-bot"
+          git config user.email "actions@github.com"
+          git add public/data
+          if git diff --cached --quiet; then
+            echo "No data changes today."
+            echo "CHANGED=0" >> "$GITHUB_ENV"
+          else
+            git commit -m "data: automated daily refresh $(date -u +%F)"
+            git push
+            echo "CHANGED=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Deploy to Vercel production
+        if: env.CHANGED == '1'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel deploy --prod --yes --token="$VERCEL_TOKEN"

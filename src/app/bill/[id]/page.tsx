@@ -6,6 +6,24 @@ import { STATE_NAMES, ordinal } from "../../../lib/states";
 import { Avatar, SourceChip, StatusBadge, Stepper, TopicTags } from "../../../components/cards";
 import { VoteCard } from "../../../components/votes";
 import FollowButton from "../../../components/FollowButton";
+import { ISSUES_URL } from "../../../lib/site";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const [{ bills }, { summaries }] = await Promise.all([getBills(), getSummaries()]);
+  const bill = bills.find((b) => b.id === id);
+  if (!bill) return { title: "Bill not found" };
+  const shortTitle = bill.title.length > 70 ? bill.title.slice(0, 67) + "…" : bill.title;
+  const ai = summaries[id];
+  const description = `${bill.status_raw} (${bill.status_date}). ${
+    ai?.one_liner ? ai.one_liner + " " : ""
+  }Sponsor: ${bill.sponsor ? `${bill.sponsor.name} (${bill.sponsor.state})` : "—"}. Timeline, votes, and official sources on CivicAtlas.`;
+  return {
+    title: `${bill.number}: ${shortTitle}`,
+    description,
+    openGraph: { title: `${bill.number} — ${shortTitle}`, description, type: "article" },
+  };
+}
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -207,9 +225,17 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
             <SourceChip kind="official" label="Full text & record — Congress.gov" href={bill.congress_link} />
             <SourceChip kind="aggregator" label="GovTrack tracking page" href={bill.link} />
           </div>
-          <div className="mt-3 text-[10px] text-[#475569]">
-            Data fetched {fmtDate(fetched_at.slice(0, 10))} · status: {bill.status_raw} · introduced{" "}
-            {fmtDate(bill.introduced)}
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#475569]">
+            <span>
+              Data fetched {fmtDate(fetched_at.slice(0, 10))} · status: {bill.status_raw} · introduced{" "}
+              {fmtDate(bill.introduced)}
+            </span>
+            <Link href="/methodology" className="text-[#64748b] hover:text-[#5eead4]">
+              How we compute this
+            </Link>
+            <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer" className="text-[#64748b] hover:text-[#fb923c]">
+              ⚑ Report an issue
+            </a>
           </div>
         </section>
 

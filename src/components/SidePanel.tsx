@@ -437,8 +437,13 @@ function Freshness({ fetchedAt }: { fetchedAt: string | null }) {
       </Link>
       <div className="flex items-center gap-2 rounded-xl border border-[rgba(148,163,184,0.1)] px-3 py-2 text-[10px] text-[#64748b]">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#34d399]" />
-        Data fetched {fmtDate(fetchedAt.slice(0, 10))} from official sources via Congress.gov roster & GovTrack ·
-        district boundaries: U.S. Census CD118
+        <span>
+          Data fetched {fmtDate(fetchedAt.slice(0, 10))} from official sources via Congress.gov roster & GovTrack ·
+          district boundaries: U.S. Census CD118 ·{" "}
+          <Link href="/methodology" className="text-[#8fa1bb] underline-offset-2 hover:text-[#5eead4]">
+            methodology
+          </Link>
+        </span>
       </div>
     </div>
   );
