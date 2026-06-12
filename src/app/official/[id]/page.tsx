@@ -54,6 +54,12 @@ export default async function OfficialPage({ params }: { params: Promise<{ id: s
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <FollowButton kind="members" id={member.id} label={member.name} />
+              <Link
+                href={`/compare?a=${member.id}`}
+                className="rounded-xl bg-[rgba(129,140,248,0.1)] px-3.5 py-2 text-[12px] font-semibold text-[#a5b4fc] ring-1 ring-[rgba(129,140,248,0.3)] transition-opacity hover:opacity-80"
+              >
+                ⇄ Compare
+              </Link>
               {member.website && (
                 <a
                   href={member.website}
