@@ -5,6 +5,7 @@ import { fmtDate } from "../../../lib/status";
 import { STATE_NAMES, ordinal } from "../../../lib/states";
 import { Avatar, SourceChip, StatusBadge, Stepper, TopicTags } from "../../../components/cards";
 import { VoteCard } from "../../../components/votes";
+import FollowButton from "../../../components/FollowButton";
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,6 +33,9 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
             <span className="font-mono text-sm font-bold tracking-wide text-[#7dd3fc]">{bill.number}</span>
             <StatusBadge bill={bill} size="md" />
             <span className="text-[11px] text-[#64748b]">{ordinal(bill.congress)} Congress</span>
+            <span className="ml-auto">
+              <FollowButton kind="bills" id={bill.id} label={bill.number} />
+            </span>
           </div>
           <h1 className="mt-3 text-2xl font-semibold leading-snug tracking-tight text-[#f1f6fc]">{bill.title}</h1>
           <div className="mt-3">

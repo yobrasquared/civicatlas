@@ -5,6 +5,7 @@ import { TOPIC_LABELS, fmtDate } from "../../../lib/status";
 import { STATE_NAMES } from "../../../lib/states";
 import { Avatar, BillRow, SourceChip } from "../../../components/cards";
 import { KindChip, PositionBadge } from "../../../components/votes";
+import FollowButton from "../../../components/FollowButton";
 
 export default async function OfficialPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -52,6 +53,7 @@ export default async function OfficialPage({ params }: { params: Promise<{ id: s
               Serving since {fmtDate(member.serving_since)} · current term ends {fmtDate(member.termEnd)}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
+              <FollowButton kind="members" id={member.id} label={member.name} />
               {member.website && (
                 <a
                   href={member.website}

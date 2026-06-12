@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useFollows } from "../lib/follows";
 import CivicMap, { type HoverInfo, type MapHandle, type ViewContext } from "./CivicMap";
 import SidePanel from "./SidePanel";
 import SearchBox from "./SearchBox";
@@ -37,6 +39,8 @@ export default function Atlas() {
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const mapRef = useRef<MapHandle>(null);
   const router = useRouter();
+  const follows = useFollows();
+  const followCount = follows.bills.length + follows.members.length;
 
   useEffect(() => {
     Promise.all([
@@ -206,6 +210,19 @@ export default function Atlas() {
             }}
             onLookup={handleLookup}
           />
+          <Link
+            href="/digest"
+            className="glass pointer-events-auto flex shrink-0 items-center gap-1.5 rounded-2xl px-3 py-2.5 text-[12px] font-semibold text-[#5eead4] transition-colors hover:text-[#a7f3d0] md:py-3"
+            title="Your civic digest — bills and representatives you follow"
+          >
+            ★
+            <span className="hidden sm:inline">Digest</span>
+            {followCount > 0 && (
+              <span className="rounded-full bg-[rgba(45,212,191,0.15)] px-1.5 text-[10px] text-[#5eead4]">
+                {followCount}
+              </span>
+            )}
+          </Link>
           <div className="glass pointer-events-auto ml-auto hidden items-center gap-2 rounded-2xl px-3 py-3 text-[10px] text-[#8fa1bb] lg:flex">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#34d399] pulse-dot" />
             Nonpartisan · source-linked · live data
