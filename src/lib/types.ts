@@ -92,5 +92,42 @@ export type AISummary = {
 
 export type SummariesFile = { generated_at: string; model: string; summaries: Record<string, AISummary> };
 
+export type StateLegislator = {
+  id: string;
+  name: string;
+  party: string;
+  chamber: "upper" | "lower" | string;
+  title: string;
+  district: string;
+  image: string | null;
+  email: string | null;
+  openstates_url: string;
+};
+
+export type StateBill = {
+  id: string;
+  identifier: string;
+  title: string;
+  session: string;
+  classification: string[];
+  topics: string[];
+  first_action: string | null;
+  latest_action: string;
+  latest_action_date: string;
+  passed_date: string | null;
+  openstates_url: string;
+  sponsors: string[];
+};
+
+export type StateFile = {
+  fetched_at: string;
+  source: string;
+  source_url: string;
+  state: string;
+  name: string;
+  legislators: StateLegislator[];
+  bills: StateBill[];
+};
+
 export type MembersFile = { fetched_at: string; source: string; source_url: string; members: Member[] };
 export type BillsFile = { fetched_at: string; source: string; source_url: string; congress: number; bills: Bill[] };

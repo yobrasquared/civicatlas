@@ -39,6 +39,9 @@ export function districtLabel(state: string, district: number): string {
   return district === 0 ? `${name} At-Large` : `${name} — District ${district}`;
 }
 
+/** States with Open States legislature data (Phase 2 pilot). */
+export const PILOT_STATES = ["CA", "TX", "NY", "FL", "PA"];
+
 export function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);

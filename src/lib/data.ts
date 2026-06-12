@@ -1,7 +1,17 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { cache } from "react";
-import type { BillsFile, MembersFile, SummariesFile, VotesFile } from "./types";
+import type { BillsFile, MembersFile, StateFile, SummariesFile, VotesFile } from "./types";
+
+export const getStateData = cache(async (abbr: string): Promise<StateFile | null> => {
+  if (!/^[A-Z]{2}$/.test(abbr)) return null;
+  try {
+    const raw = await readFile(resolve(process.cwd(), `public/data/states/${abbr}.json`), "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+});
 
 export const getBills = cache(async (): Promise<BillsFile> => {
   const raw = await readFile(resolve(process.cwd(), "public/data/bills.json"), "utf8");

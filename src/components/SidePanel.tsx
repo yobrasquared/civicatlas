@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Bill, Member, RollCallVote } from "../lib/types";
 import type { Selection } from "./Atlas";
-import { STATE_NAMES, districtLabel } from "../lib/states";
+import { PILOT_STATES, STATE_NAMES, districtLabel } from "../lib/states";
 import { fmtDate } from "../lib/status";
 import { BillRow, RepCard } from "./cards";
 import { PositionBadge } from "./votes";
@@ -271,6 +271,16 @@ function StateView({
           </>
         )}
       </div>
+
+      {PILOT_STATES.includes(state) && (
+        <Link
+          href={`/state/${state}`}
+          className="mt-4 block rounded-xl border border-[rgba(94,234,212,0.25)] bg-[rgba(45,212,191,0.06)] px-3 py-2.5 text-[12px] text-[#5eead4] transition-colors hover:bg-[rgba(45,212,191,0.12)]"
+        >
+          🏛 <span className="font-semibold">{STATE_NAMES[state]} State Legislature</span> — state bills &
+          legislators →
+        </Link>
+      )}
 
       <div className="mt-5">
         <SectionLabel>Recent bills from {STATE_NAMES[state] ?? state}</SectionLabel>

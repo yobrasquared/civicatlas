@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Server code (lookup API, bill/official pages) reads these JSON files with
+  // fs at runtime — make sure they're bundled into the serverless functions.
+  outputFileTracingIncludes: {
+    "/**": ["./public/data/**"],
+  },
 };
 
 export default nextConfig;

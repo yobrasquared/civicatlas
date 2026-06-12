@@ -9,7 +9,8 @@
     "lint": "eslint",
     "ingest": "node scripts/ingest.mjs",
     "ingest:votes": "node scripts/ingest-votes.mjs",
-    "summarize": "node scripts/summarize.mjs"
+    "summarize": "node scripts/summarize.mjs",
+    "ingest:states": "node scripts/ingest-states.mjs"
   },
   "dependencies": {
     "maplibre-gl": "^5.24.0",
