@@ -19,6 +19,7 @@ A nonpartisan, source-linked, map-first view of U.S. government activity. Zoom i
 - **Follow & digest** — star bills/members (device-local only, never sent to a server) and see their latest activity at `/digest`.
 - **Compare two officials** — `/compare`: side-by-side records, vote agreement % over shared roll calls, and every vote where they split.
 - **AI plain-English summaries** — clearly-labeled, confidence-scored summaries on top bill pages, generated closed-corpus from the official record only (`npm run summarize`, needs `NVIDIA_API_KEY` in `.env.local`).
+- **State legislatures (Phase 2 pilot)** — CA, TX, NY, FL, PA: current legislators and recently active state bills at `/state/[abbr]`, linked from the map's state view (`npm run ingest:states`, needs `OPENSTATES_API_KEY` in `.env.local`).
 - **Source-first trust system** — every page carries source chips (Official / Aggregator), data-freshness stamps, and methodology notes.
 
 ## Run it
