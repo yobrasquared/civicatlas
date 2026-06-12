@@ -58,6 +58,9 @@ html, body {
 
 .hairline { border-color: var(--line); }
 
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 .scroll-slim { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.25) transparent; }
 .scroll-slim::-webkit-scrollbar { width: 6px; height: 6px; }
 .scroll-slim::-webkit-scrollbar-thumb { background: rgba(148,163,184,.25); border-radius: 3px; }

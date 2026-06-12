@@ -6,7 +6,7 @@ import CivicMap, { type HoverInfo, type MapHandle, type ViewContext } from "./Ci
 import SidePanel from "./SidePanel";
 import SearchBox from "./SearchBox";
 import type { Bill, BillsFile, Member, MembersFile, RollCallVote, VotesFile } from "../lib/types";
-import { parseGeoid, districtLabel } from "../lib/states";
+import { STATE_NAMES, parseGeoid, districtLabel } from "../lib/states";
 import { TOPIC_LABELS } from "../lib/status";
 import { PartyChip } from "./cards";
 
@@ -18,8 +18,8 @@ export type Selection = {
 } | null;
 
 // Zoom thresholds for the panel following the viewport
-const STATE_ZOOM = 4.3;
-const DISTRICT_ZOOM = 5.8;
+const STATE_ZOOM = 4.0;
+const DISTRICT_ZOOM = 5.5;
 
 const TOPIC_ORDER = [
   "healthcare", "economy", "housing", "education", "environment", "taxes", "immigration",
@@ -147,9 +147,24 @@ export default function Atlas() {
     }
   }
 
-  const hoverSeat = hover ? parseGeoid(hover.geoid) : null;
-  const hoverMember = hoverSeat ? membersBySeat[`${hoverSeat.state}-${hoverSeat.district}`] : null;
-  const hoverCount = hoverSeat ? activity[`${hoverSeat.state}-${hoverSeat.district}`] ?? 0 : 0;
+  const hoverDetails = useMemo(() => {
+    if (!hover) return null;
+    const seat = parseGeoid(hover.geoid);
+    if (!seat) return null;
+
+    const seatKey = `${seat.state}-${seat.district}`;
+    return {
+      geoid: hover.geoid,
+      x: hover.x,
+      y: hover.y,
+      seat,
+      stateName: STATE_NAMES[seat.state] ?? seat.state,
+      districtName: seat.district === 0 ? "At-Large District" : `District ${seat.district}`,
+      fullDistrictName: districtLabel(seat.state, seat.district),
+      member: membersBySeat[seatKey] ?? null,
+      count: activity[seatKey] ?? 0,
+    };
+  }, [activity, hover, membersBySeat]);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#060a13]">
@@ -198,7 +213,7 @@ export default function Atlas() {
         </div>
 
         {/* topic chips */}
-        <div className="scroll-slim pointer-events-auto flex gap-1.5 overflow-x-auto pb-1 pr-2 md:pr-[440px]">
+        <div className="no-scrollbar pointer-events-auto flex gap-1.5 overflow-x-auto pb-1 pr-2 md:pr-[440px]">
           <button className={`chip ${topic === null ? "active" : ""}`} onClick={() => setTopic(null)}>
             All topics
           </button>
@@ -208,27 +223,44 @@ export default function Atlas() {
             </button>
           ))}
         </div>
+
+        <div className="pointer-events-auto hidden w-fit max-w-xl rounded-xl border border-[rgba(94,234,212,0.2)] bg-[rgba(6,10,19,0.72)] px-3 py-2 text-[11px] text-[#8fa1bb] shadow-[0_8px_24px_rgba(2,6,16,0.45)] backdrop-blur md:block">
+          {hoverDetails ? (
+            <>
+              Hovering: <span className="font-semibold text-[#e6edf7]">{hoverDetails.stateName}</span>
+              <span className="text-[#475569]"> / </span>
+              <span className="font-semibold text-[#5eead4]">{hoverDetails.districtName}</span>
+            </>
+          ) : (
+            <>Move the mouse over any district to identify its state and district.</>
+          )}
+        </div>
       </div>
 
       {/* hover card (pointer devices only — touch goes straight to tap-select) */}
-      {hover && hoverSeat && (
+      {hoverDetails && (
         <div
-          className="glass pointer-events-none absolute z-20 hidden w-60 rounded-xl p-3 md:block"
+          key={hoverDetails.geoid}
+          className="glass pointer-events-none absolute z-20 hidden w-72 rounded-xl p-3 md:block"
           style={{
-            left: Math.min(hover.x + 14, (typeof window !== "undefined" ? window.innerWidth : 1200) - 260),
-            top: hover.y + 14,
+            left: Math.min(hoverDetails.x + 14, (typeof window !== "undefined" ? window.innerWidth : 1200) - 300),
+            top: Math.min(hoverDetails.y + 14, (typeof window !== "undefined" ? window.innerHeight : 800) - 180),
           }}
         >
-          <div className="text-[12px] font-semibold text-[#f1f6fc]">{districtLabel(hoverSeat.state, hoverSeat.district)}</div>
-          {hoverMember && (
+          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#64748b]">Map hover</div>
+          <div className="mt-1 text-[13px] font-semibold text-[#f1f6fc]">{hoverDetails.stateName}</div>
+          <div className="mt-0.5 text-[12px] text-[#5eead4]">
+            {hoverDetails.districtName} <span className="text-[#64748b]">({hoverDetails.fullDistrictName})</span>
+          </div>
+          {hoverDetails.member && (
             <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#cbd5e1]">
-              <PartyChip party={hoverMember.party} /> Rep. {hoverMember.name}
+              <PartyChip party={hoverDetails.member.party} /> Rep. {hoverDetails.member.name}
             </div>
           )}
           <div className="mt-1 text-[10px] text-[#5eead4]">
-            {hoverCount} bill{hoverCount === 1 ? "" : "s"} sponsored here recently{topic ? ` · ${TOPIC_LABELS[topic]}` : ""}
+            {hoverDetails.count} bill{hoverDetails.count === 1 ? "" : "s"} sponsored here recently{topic ? ` · ${TOPIC_LABELS[topic]}` : ""}
           </div>
-          <div className="mt-1 text-[9px] text-[#64748b]">Click to explore this district</div>
+          <div className="mt-1 text-[9px] text-[#64748b]">Click to pin this district and open its details</div>
         </div>
       )}
 

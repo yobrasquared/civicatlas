@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import type { Bill, Member, RollCallVote } from "../lib/types";
 import type { Selection } from "./Atlas";
@@ -26,13 +26,26 @@ const TABS = ["Moving now", "New laws", "Most active"] as const;
 
 export default function SidePanel({ selection, members, bills, votes, topic, activity, fetchedAt, onClear, onPickState, onPickSeat }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Moving now");
+  const pinnedSelectionKey =
+    selection?.source === "pin"
+      ? `${selection.state}-${selection.district ?? "state"}-${selection.geoid ?? "state"}`
+      : null;
   // Mobile bottom-sheet state; ignored on md+ where the panel is a fixed side dock.
-  const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    // only explicit selections (click/search/ZIP) pop the sheet open — panning shouldn't
-    if (selection && selection.source === "pin") setExpanded(true);
-  }, [selection]);
-  const sheet = { expanded, onToggle: () => setExpanded((e) => !e) };
+  const [manuallyExpanded, setManuallyExpanded] = useState(false);
+  const [collapsedSelectionKey, setCollapsedSelectionKey] = useState<string | null>(null);
+  const expanded = manuallyExpanded || Boolean(pinnedSelectionKey && collapsedSelectionKey !== pinnedSelectionKey);
+  const sheet = {
+    expanded,
+    onToggle: () => {
+      if (expanded) {
+        setManuallyExpanded(false);
+        setCollapsedSelectionKey(pinnedSelectionKey);
+      } else {
+        setManuallyExpanded(true);
+        setCollapsedSelectionKey(null);
+      }
+    },
+  };
 
   const topicBills = topic ? bills.filter((b) => b.topics.includes(topic)) : bills;
 
@@ -68,9 +81,12 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
     return (
       <Panel {...sheet}>
         <div className="rise">
-          <button onClick={onClear} className="mb-3 text-[11px] text-[#8fa1bb] transition-colors hover:text-[#5eead4]">
-            ← Back to national view
-          </button>
+          <div className="mb-3 flex items-center justify-between">
+            <button onClick={onClear} className="text-[11px] text-[#8fa1bb] transition-colors hover:text-[#5eead4]">
+              ← Back to national view
+            </button>
+            <Eyebrow>District view</Eyebrow>
+          </div>
           <h2 className="text-[17px] font-semibold leading-tight text-[#f1f6fc]">
             {districtLabel(selection.state, district)}
           </h2>
@@ -78,6 +94,7 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
             {delegationBills.length} bill{delegationBills.length === 1 ? "" : "s"} from this delegation in the
             recent window{topic ? ` · filtered by topic` : ""}
           </p>
+          <BoundaryNote />
           <button
             onClick={() => onPickState(selection.state)}
             className="mt-1.5 text-[11px] text-[#7dd3fc] transition-colors hover:text-[#5eead4]"
@@ -138,6 +155,8 @@ export default function SidePanel({ selection, members, bills, votes, topic, act
           Real legislation, real votes, real laws — every item links to the official record. Move the map and this
           panel follows: zoom into a state or district, click one, or search your ZIP code.
         </p>
+        <StartNudge />
+        <BoundaryNote />
 
         <div className="mt-3 grid grid-cols-3 gap-2">
           <Stat n={String(members.length)} label="members" />
@@ -221,14 +240,18 @@ function StateView({
 
   return (
     <div className="rise">
-      <button onClick={onClear} className="mb-3 text-[11px] text-[#8fa1bb] transition-colors hover:text-[#5eead4]">
-        ← Back to national view
-      </button>
+      <div className="mb-3 flex items-center justify-between">
+        <button onClick={onClear} className="text-[11px] text-[#8fa1bb] transition-colors hover:text-[#5eead4]">
+          ← Back to national view
+        </button>
+        <Eyebrow>State overview</Eyebrow>
+      </div>
       <h2 className="text-[17px] font-semibold leading-tight text-[#f1f6fc]">{STATE_NAMES[state] ?? state}</h2>
       <p className="mt-1 text-[11px] text-[#8fa1bb]">
         {stateBills.length} bill{stateBills.length === 1 ? "" : "s"} from this state’s delegation in the recent
         window{topic ? " · filtered by topic" : ""} · zoom in on the map for district detail
       </p>
+      <BoundaryNote />
 
       <div className="mt-4 space-y-2">
         <SectionLabel>Senators</SectionLabel>
@@ -349,8 +372,37 @@ function Panel({
   );
 }
 
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-[rgba(94,234,212,0.08)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#5eead4] ring-1 ring-[rgba(94,234,212,0.2)]">
+      {children}
+    </span>
+  );
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div className="px-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#64748b]">{children}</div>;
+}
+
+function StartNudge() {
+  return (
+    <div className="mt-3 rounded-xl border border-[rgba(45,212,191,0.22)] bg-[rgba(45,212,191,0.07)] px-3 py-2.5">
+      <div className="text-[11px] font-semibold text-[#d8fff8]">Start with a place</div>
+      <div className="mt-0.5 text-[10px] leading-relaxed text-[#8fa1bb]">
+        Enter a ZIP/address in search to find your district, or type a state name to browse its delegation.
+      </div>
+    </div>
+  );
+}
+
+function BoundaryNote() {
+  return (
+    <div className="mt-3 rounded-xl border border-[rgba(251,191,36,0.22)] bg-[rgba(251,191,36,0.07)] px-3 py-2 text-[10px] leading-relaxed text-[#c9b78a]">
+      <span className="font-semibold text-[#fbbf24]">Boundary vintage:</span> district shapes use Census CD118 files;
+      legislative and vote data tracks the 119th Congress. Address lookup checks the current Census geocoder and falls
+      back to the displayed map file when vintages differ.
+    </div>
+  );
 }
 
 function Stat({ n, label }: { n: string; label: string }) {
@@ -376,7 +428,7 @@ function Freshness({ fetchedAt }: { fetchedAt: string | null }) {
       <div className="flex items-center gap-2 rounded-xl border border-[rgba(148,163,184,0.1)] px-3 py-2 text-[10px] text-[#64748b]">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#34d399]" />
         Data fetched {fmtDate(fetchedAt.slice(0, 10))} from official sources via Congress.gov roster & GovTrack ·
-        boundaries: U.S. Census
+        district boundaries: U.S. Census CD118
       </div>
     </div>
   );

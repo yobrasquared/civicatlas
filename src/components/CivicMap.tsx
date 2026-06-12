@@ -28,6 +28,27 @@ type Props = {
 };
 
 type Feature = GeoJSON.Feature<GeoJSON.Geometry, { GEOID: string }>;
+type IndexedFeature = { feature: Feature; bbox: [number, number, number, number] };
+
+function pointInRing(pt: [number, number], ring: GeoJSON.Position[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInGeometry(pt: [number, number], geom: GeoJSON.Geometry): boolean {
+  if (geom.type !== "Polygon" && geom.type !== "MultiPolygon") return false;
+  const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  return polys.some((poly) => pointInRing(pt, poly[0]) && !poly.slice(1).some((hole) => pointInRing(pt, hole)));
+}
+
+function normalizeLng(lng: number) {
+  return ((((lng + 180) % 360) + 360) % 360) - 180;
+}
 
 function bboxOf(geom: GeoJSON.Geometry): [number, number, number, number] {
   let minX = 180, minY = 90, maxX = -180, maxY = -90;
@@ -88,14 +109,34 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const featuresRef = useRef<Feature[]>([]);
+  const indexedFeaturesRef = useRef<IndexedFeature[]>([]);
   const hoveredRef = useRef<string | null>(null);
   const selectedRef = useRef<string | null>(null);
   const stateHighlightRef = useRef<string | null>(null);
   const readyRef = useRef(false);
+  // Set just before programmatic flights so the resulting moveend doesn't re-derive context.
+  // Auto-disarms in case the flight produces no camera change (and thus no moveend).
+  const suppressRef = useRef(false);
+  const suppressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armSuppress = () => {
+    suppressRef.current = true;
+    if (suppressTimerRef.current) clearTimeout(suppressTimerRef.current);
+    suppressTimerRef.current = setTimeout(() => (suppressRef.current = false), 1800);
+  };
   const cbRef = useRef({ onSelect, onHover, onViewContext });
   cbRef.current = { onSelect, onHover, onViewContext };
   const activityRef = useRef({ activity, maxActivity });
   activityRef.current = { activity, maxActivity };
+
+  const featureAtLngLat = (lng: number, lat: number) => {
+    const x = normalizeLng(lng);
+    const pt: [number, number] = [x, lat];
+    return indexedFeaturesRef.current.find(({ feature, bbox }) => {
+      const [minX, minY, maxX, maxY] = bbox;
+      if (x < minX || x > maxX || lat < minY || lat > maxY) return false;
+      return pointInGeometry(pt, feature.geometry);
+    })?.feature;
+  };
 
   const paintActivity = () => {
     const map = mapRef.current;
@@ -135,6 +176,7 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
 
     map.on("load", async () => {
       // frame the continental US for any viewport shape, leaving room for the panel/sheet
+      armSuppress();
       try {
         map.fitBounds([-124.8, 24.4, -66.9, 49.4], { padding: nationalPadding(map), duration: 0 });
       } catch {
@@ -143,6 +185,7 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
       const res = await fetch("/data/districts.geojson");
       const geojson = (await res.json()) as GeoJSON.FeatureCollection;
       featuresRef.current = geojson.features as Feature[];
+      indexedFeaturesRef.current = featuresRef.current.map((feature) => ({ feature, bbox: bboxOf(feature.geometry) }));
 
       map.addSource("districts", { type: "geojson", data: geojson, promoteId: "GEOID" });
       map.addSource("states", { type: "geojson", data: "/data/states.geojson", promoteId: "GEOID" });
@@ -216,34 +259,57 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
       readyRef.current = true;
       paintActivity();
 
-      map.on("mousemove", "district-fill", (e) => {
-        const f = e.features?.[0];
-        if (!f) return;
-        const geoid = f.properties.GEOID as string;
-        if (hoveredRef.current && hoveredRef.current !== geoid) {
-          map.setFeatureState({ source: "districts", id: hoveredRef.current }, { hover: false });
-        }
-        hoveredRef.current = geoid;
-        map.setFeatureState({ source: "districts", id: geoid }, { hover: true });
-        map.getCanvas().style.cursor = "pointer";
-        cbRef.current.onHover({ geoid, x: e.point.x, y: e.point.y });
-      });
-      map.on("mouseleave", "district-fill", () => {
+      const clearHover = () => {
         if (hoveredRef.current) {
           map.setFeatureState({ source: "districts", id: hoveredRef.current }, { hover: false });
           hoveredRef.current = null;
         }
         map.getCanvas().style.cursor = "";
         cbRef.current.onHover(null);
+      };
+
+      const setHoverAtPoint = (point: maplibregl.Point, lng: number, lat: number) => {
+        const f = featureAtLngLat(lng, lat);
+        const rendered = f ? null : map.queryRenderedFeatures(point, { layers: ["district-fill"] })[0];
+        const geoid = f?.properties.GEOID ?? (rendered?.properties.GEOID as string | undefined);
+        if (!geoid) {
+          clearHover();
+          return;
+        }
+        if (hoveredRef.current && hoveredRef.current !== geoid) {
+          map.setFeatureState({ source: "districts", id: hoveredRef.current }, { hover: false });
+        }
+        hoveredRef.current = geoid;
+        map.setFeatureState({ source: "districts", id: geoid }, { hover: true });
+        map.getCanvas().style.cursor = "pointer";
+        cbRef.current.onHover({ geoid, x: point.x, y: point.y });
+      };
+
+      const handleCanvasMove = (event: MouseEvent | PointerEvent) => {
+        const rect = map.getCanvas().getBoundingClientRect();
+        const point = new maplibregl.Point(event.clientX - rect.left, event.clientY - rect.top);
+        const lngLat = map.unproject(point);
+        setHoverAtPoint(point, lngLat.lng, lngLat.lat);
+      };
+
+      map.on("mousemove", "district-fill", (e) => {
+        setHoverAtPoint(e.point, e.lngLat.lng, e.lngLat.lat);
       });
+      map.on("mouseleave", "district-fill", clearHover);
+      const canvas = map.getCanvas();
+      canvas.addEventListener("mousemove", handleCanvasMove);
+      canvas.addEventListener("pointermove", handleCanvasMove);
+      canvas.addEventListener("mouseleave", clearHover);
       map.on("click", "district-fill", (e) => {
-        const f = e.features?.[0];
-        if (f) cbRef.current.onSelect(f.properties.GEOID as string);
+        const f = featureAtLngLat(e.lngLat.lng, e.lngLat.lat);
+        const rendered = f ? null : e.features?.[0];
+        const geoid = f?.properties.GEOID ?? (rendered?.properties.GEOID as string | undefined);
+        if (geoid) cbRef.current.onSelect(geoid);
       });
 
-      // After USER pans/zooms (not programmatic flights), report the district
-      // under the visual center so the panel can follow the map.
-      let userMoved = false;
+      // After the camera settles, report the district under the visual center so
+      // the panel can follow the map. Covers drag, wheel, pinch, +/- buttons and
+      // keyboard — programmatic flights arm suppressRef and are skipped.
       const emitContext = () => {
         const w = map.getContainer().clientWidth;
         const h = map.getContainer().clientHeight;
@@ -261,24 +327,23 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
           zoom: map.getZoom(),
         });
       };
-      map.on("dragstart", () => (userMoved = true));
-      map.on("zoomstart", (e) => {
-        if (e.originalEvent) userMoved = true;
-      });
       map.on("moveend", () => {
-        if (!userMoved) return;
-        userMoved = false;
+        if (suppressRef.current) {
+          suppressRef.current = false;
+          return;
+        }
         emitContext();
       });
     });
 
     return () => {
+      if (suppressTimerRef.current) clearTimeout(suppressTimerRef.current);
       resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
+      indexedFeaturesRef.current = [];
       readyRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(paintActivity, [activity, maxActivity]);
@@ -295,6 +360,7 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
     if (opts?.fly === false) return;
     const f = featuresRef.current.find((x) => x.properties.GEOID === geoid);
     if (f) {
+      armSuppress();
       try {
         map.fitBounds(bboxOf(f.geometry), {
           padding: fitPadding(map),
@@ -330,6 +396,7 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
     flyNational: () => {
       const map = mapRef.current;
       if (!map || !readyRef.current) return;
+      armSuppress();
       try {
         map.fitBounds([-124.8, 24.4, -66.9, 49.4], { padding: nationalPadding(map), duration: 900, essential: true });
       } catch {
@@ -349,6 +416,7 @@ const CivicMap = forwardRef<MapHandle, Props>(function CivicMap(
           : b;
       }
       if (box) {
+        armSuppress();
         try {
           map.fitBounds(box, { padding: fitPadding(map), duration: 1200, essential: true });
         } catch {

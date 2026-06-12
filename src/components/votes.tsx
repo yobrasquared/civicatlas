@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Member, RollCallVote } from "../lib/types";
 import { fmtDate } from "../lib/status";
+import { STATE_NAMES } from "../lib/states";
 
 export const POSITION_META: Record<string, { label: string; color: string; bg: string }> = {
   Y: { label: "Yea", color: "#2dd4bf", bg: "rgba(45,212,191,0.12)" },
@@ -68,6 +69,15 @@ export function VoteBar({ totals }: { totals: { y: number; n: number; o: number 
 
 type RosterEntry = Pick<Member, "id" | "name" | "party" | "state">;
 
+function matchesRosterQuery(entry: RosterEntry, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const state = entry.state.toLowerCase();
+  const stateName = (STATE_NAMES[entry.state] ?? "").toLowerCase();
+  if (/^[a-z]{2}$/.test(q)) return state === q;
+  return entry.name.toLowerCase().includes(q) || stateName.includes(q) || state === q;
+}
+
 export function VoteCard({ vote, roster }: { vote: RollCallVote; roster: RosterEntry[] }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -78,7 +88,7 @@ export function VoteCard({ vote, roster }: { vote: RollCallVote; roster: RosterE
     for (const [id, pos] of Object.entries(vote.positions)) {
       const entry = byId.get(id);
       if (!entry) continue;
-      if (q && !`${entry.name} ${entry.state}`.toLowerCase().includes(q.toLowerCase())) continue;
+      if (!matchesRosterQuery(entry, q)) continue;
       (groups[pos] ?? groups.X).push({ entry, pos });
     }
     for (const g of Object.values(groups)) g.sort((a, b) => a.entry.name.localeCompare(b.entry.name));
