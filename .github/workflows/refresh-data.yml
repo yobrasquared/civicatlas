@@ -59,7 +59,10 @@ jobs:
           fi
 
       - name: Deploy to Vercel production
-        if: env.CHANGED == '1'
+        # Only deploys when data actually changed AND a Vercel token is configured.
+        # Without the token the data is still committed (and Vercel's own Git
+        # integration may auto-deploy the push); this step just no-ops cleanly.
+        if: env.CHANGED == '1' && env.VERCEL_TOKEN != ''
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx vercel deploy --prod --yes --token="$VERCEL_TOKEN"
