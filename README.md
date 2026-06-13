@@ -2,7 +2,11 @@
 
 **See what your government is actually doing.**
 
+🌐 **Live:** [civicatlas.vercel.app](https://civicatlas.vercel.app) · [Methodology & sources](https://civicatlas.vercel.app/methodology)
+
 A nonpartisan, source-linked, map-first view of U.S. government activity. Zoom into any congressional district to see who represents it, what they've sponsored, what's moving through Congress right now, and what just became law — every claim one click from the official record.
+
+Data refreshes automatically each day via a GitHub Actions workflow that re-ingests the official records, regenerates AI summaries for bills that moved, and redeploys.
 
 ## What works today (Phase 1 MVP)
 
